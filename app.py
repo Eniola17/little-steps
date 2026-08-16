@@ -721,12 +721,7 @@ if data is None:
 
         else:
 
-            weekly_target = (
-                little_steps.calculate_weekly_target(
-                    activity_level,
-                    days
-                )
-            )
+            weekly_target = days
 
             activities = (
                 little_steps.build_activities(
@@ -1324,7 +1319,7 @@ Come back tomorrow for your next little step."""
 
             for goal in active_goals:
 
-                col1, col2 = st.columns([5, 1])
+                col1, col2, col3 = st.columns([4, 1, 1])
 
                 with col1:
                     st.markdown(
@@ -1339,13 +1334,22 @@ Come back tomorrow for your next little step."""
                         unsafe_allow_html=True
                     )
 
+                # EDIT BUTTON
                 with col2:
-
                     if st.button(
-                        "Remove",
+                        "✏️ Edit",
+                        key=f"edit_goal_{goal['id']}"
+                    ):
+                        st.session_state[
+                            f"editing_goal_{goal['id']}"
+                        ] = True
+
+                # REMOVE BUTTON
+                with col3:
+                    if st.button(
+                        "🗑️ Remove",
                         key=f"remove_goal_{goal['id']}"
                     ):
-
                         data["goals"] = [
                             g for g in data["goals"]
                             if g["id"] != goal["id"]
@@ -1354,14 +1358,125 @@ Come back tomorrow for your next little step."""
                         little_steps.save_data(data)
                         st.rerun()
 
+                # EDIT FORM
+                if st.session_state.get(
+                    f"editing_goal_{goal['id']}",
+                    False
+                ):
+
+                    with st.form(
+                        f"edit_form_{goal['id']}"
+                    ):
+
+                        st.markdown("### ✏️ Edit your goal")
+
+                        edited_name = st.text_input(
+                            "Goal name",
+                            value=goal["name"],
+                            key=f"edit_name_{goal['id']}"
+                        )
+
+                        categories = list(
+                            GOAL_TEMPLATES.keys()
+                        )
+
+                        current_category = goal.get(
+                            "category",
+                            "General fitness"
+                        )
+
+                        if current_category not in categories:
+                            current_category = "General fitness"
+
+                        edited_category = st.selectbox(
+                            "Goal type",
+                            categories,
+                            index=categories.index(
+                                current_category
+                            ),
+                            key=f"edit_category_{goal['id']}"
+                        )
+
+                        suggested_steps = GOAL_TEMPLATES[
+                            edited_category
+                        ]
+
+                        edited_step = st.text_input(
+                            "Little step",
+                            value=goal["step"],
+                            key=f"edit_step_{goal['id']}"
+                        )
+
+                        save_col, cancel_col = st.columns(2)
+
+                        with save_col:
+                            save_edit = st.form_submit_button(
+                                "💾 Save changes",
+                                type="primary",
+                                use_container_width=True
+                            )
+
+                        with cancel_col:
+                            cancel_edit = st.form_submit_button(
+                                "Cancel",
+                                use_container_width=True
+                            )
+
+                        if save_edit:
+
+                            if not edited_name.strip():
+                                st.error(
+                                    "Please give your goal a name."
+                                )
+
+                            elif not edited_step.strip():
+                                st.error(
+                                    "Please add a little step."
+                                )
+
+                            else:
+
+                                for saved_goal in data["goals"]:
+
+                                    if saved_goal["id"] == goal["id"]:
+
+                                        saved_goal["name"] = (
+                                            edited_name.strip()
+                                        )
+
+                                        saved_goal["category"] = (
+                                            edited_category
+                                        )
+
+                                        saved_goal["step"] = (
+                                            edited_step.strip()
+                                        )
+
+                                little_steps.save_data(data)
+
+                                st.session_state[
+                                    f"editing_goal_{goal['id']}"
+                                ] = False
+
+                                st.success(
+                                    "Your goal has been updated! 🌱"
+                                )
+
+                                st.rerun()
+
+                        if cancel_edit:
+
+                            st.session_state[
+                                f"editing_goal_{goal['id']}"
+                            ] = False
+
+                            st.rerun()
+
         else:
 
             st.info(
                 "No active goals yet. Add your first one from the sidebar."
             )
-
-        st.divider()
-
         stage = get_journey_stage(data)
         next_milestone = get_next_milestone(data)
         total = len(data["history"])
